@@ -1,0 +1,171 @@
+#uselib "winmm"
+#cfunc timeGetTime "timeGetTime"
+#include "user32.as"
+#include "hspmath.as"
+
+screen 0,ginfo(20),ginfo(21),256,0,0
+
+successMusicFile = "success.wav"
+failureMusicFile = "failure.wav"
+mci "open \""+successMusicFile+"\" alias success"
+mci "open \""+failureMusicFile+"\" alias failure"
+
+participant = 4
+displaySize = 17.3
+
+isStart = 0
+startTime = 0
+
+temp = sqrt(16*16+9*9)
+
+dim display,2
+display = displaySize*2.54/temp*16, displaySize*2.54/temp*9
+
+temp2 = (ginfo(20) / display(0))
+temp3 = (ginfo(21) / display(1))
+
+dim Ws,2
+Ws = 3.0*temp2, 0.7*temp2
+
+dim As,2
+As = 10.0*cos(deg2rad(30.0))*temp2, 20.0*cos(deg2rad(30.0))*temp2
+
+countBlock = 21
+
+dim tasks,length(Ws)*length(As)
+gosub *taskShuffle
+
+taskCounter = 0
+blockCounter = 0
+
+A = 0
+H = 0
+W = 0
+
+error = 0
+
+//終了ターゲットの左上座標
+dim target,2
+target = 0,0
+
+//開始ターゲットの左上座標
+dim startTarget,2
+startTarget = 0,0
+
+*main
+	if(countBlock <= blockCounter){
+		notesel data
+		notesave ""+participant+"_"+S+".txt"
+		end
+	}
+	redraw 0
+	color 175,175,175:boxf
+
+	if(isStart == -1){
+		gosub *taskDataSave
+	}
+
+	onclick gosub *click
+
+	gosub *term
+
+	gosub *drawTarget
+	gosub *drawStart
+
+	redraw 1
+	
+	await 1
+	goto *main
+
+*taskShuffle
+	randomize
+	repeat length(tasks)
+		r=rnd(cnt+1)
+		tasks(cnt)=tasks(r)
+		tasks(r)=cnt
+	loop
+	return
+
+*term
+	e = tasks(taskCounter)
+	A = As(e \ length(As))
+	W = Ws((e/length(As)) \ length(Ws))
+
+	if(W == 3.0*temp2){
+		H = 0.6*temp3
+	} else {
+		H = 0.7*temp3
+	}
+
+	startTarget(0) = ginfo(20) - 200 - W - A
+	if(A == 10.0*cos(deg2rad(30.0))*temp2){
+		startTarget(1) = ginfo(21)/5 + 5.0*temp3
+	} else {
+		startTarget(1) = ginfo(21)/5 + 10.0*temp3
+	}
+	
+	target(0) = ginfo(20) - 200 - W
+	target(1) = ginfo(21)/5
+
+	return
+
+*click
+	if(startTarget(0)<=mousex && mousex<=startTarget(0)+W && startTarget(1)<=mousey && mousey<=startTarget(1)+H && isStart == 0){
+		gosub *start
+		notesel taskData
+		gosub *taskDataSave
+	} else :if(isStart == -1){
+		if(target(0)<=mousex && mousex<=target(0)+W && target(1)<=mousey && mousey<=target(1)+H){
+			error = 0
+			mci "play success from 0"
+		} else {
+			error = 1
+			mci "play failure from 0"
+		}
+		gosub *save
+	}
+
+	return
+
+*start
+	isStart = -1
+	startTime = timeGetTime()
+	return
+
+*drawStart
+	if(isStart == 0){
+		color 234,145,152
+		boxf startTarget(0),startTarget(1),startTarget(0)+W,startTarget(1)+H
+	}
+	return
+
+*drawTarget
+	color 0,255,0
+	boxf target(0),target(1),target(0)+W,target(1)+H
+	return
+
+*taskDataSave
+	noteadd ""+participant+","+A+","+W+","+H+","+timeGetTime()+","+mousex+","+mousey+","+error+","+blockCounter+","+taskCounter
+	return
+
+*save
+	isStart = 0
+	tempTime = timeGetTime()-startTime
+	gosub *taskDataSave
+	notesave ""+participant+"\\"+participant+"_"+blockCounter+"_"+taskCounter+".txt"
+	;path="hoge.txt"
+	;notesave path
+
+	taskData = ""
+	
+	notesel data
+	noteadd ""+participant+","+A+","+W+","+H+","+tempTime+","+error+","+blockCounter+","+taskCounter
+
+	taskCounter++
+	if (length(tasks) <= taskCounter){
+		blockCounter++
+		taskCounter=0
+		gosub *taskShuffle
+	}
+	
+	return
